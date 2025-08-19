@@ -8,3 +8,5 @@ find_package(SFML 2.5 COMPONENTS window REQUIRED)
 add_executable(sfml_practice main.cpp)
 
 target_link_libraries(sfml_practice sfml-window sfml-graphics sfml-system)
+
+configure_file(DejaVuSans.ttf DejaVuSans.ttf COPYONLY)

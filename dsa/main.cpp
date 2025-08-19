@@ -47,8 +47,16 @@ public:
 
     virtual void mergeSort() {}
 
-    void quickSort() {
+    virtual void quickSort() {}
 
+    void insertionSort() {
+        for (int i = 0; i<= size - 1; i++) {
+            int j = i;
+            while (j > 0 and data[j-1] > data[j]) {
+                swap(data[j] , data[j-1]);
+                j--;
+            }
+        }
     }
 };
 
@@ -165,7 +173,40 @@ private:
 
 };
 
+class CQuickSorter : public CSorter {
+public:
+    CQuickSorter(int input[], int n): CSorter(input, n) {}
 
+
+    void quickSort() override {
+        quickSortRecursive(data, 0, size - 1);
+    }
+
+
+private:
+
+    void quickSortRecursive(int array[], int start, int end) {
+
+        if (start >= end) {
+            return;
+        }
+        //pivot este end;
+        int i = start -1;
+        for (int j = start; j < end; ++j) {
+            if (array[j] < array[end]) {
+                swap(array[j],array[++i]);
+            }
+        }
+        swap(array[end],array[i+1]);
+
+        quickSortRecursive(array,start,i);
+        quickSortRecursive(array,i+2, end);
+
+    }
+
+
+
+};
 
 
 
@@ -179,15 +220,18 @@ int main() {
     int n = size(values);
 
 
-    CHeapSorter sorter(values , n);
+    CMergeSorter sorter0(values, n);
+    CHeapSorter sorter1(values , n);
+    CQuickSorter sorter2(values , n);
+    CSorter sorter3(values,n);
 
     cout<<"Initial array:\n";
-    sorter.print();
+    sorter3.print();
 
-    sorter.heapSort();
+    sorter3.insertionSort();
 
     cout<<"Final array:\n";
-    sorter.print();
+    sorter3.print();
     cout<< endl;
 
 
