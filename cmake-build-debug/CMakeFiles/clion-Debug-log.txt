@@ -1,0 +1,1 @@
+CMakeLists.txt not found in /home/andrei-cristea/Desktop/Facultate/Anul I/Semestrul 2/SD/pregatire_marire Select CMakeLists.txt

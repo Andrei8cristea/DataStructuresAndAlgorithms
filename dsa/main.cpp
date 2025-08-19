@@ -43,11 +43,24 @@ public:
             }
         }
     }
+    virtual void heapSort() {}
+
+    virtual void mergeSort() {}
+
+    void quickSort() {
+
+    }
+};
+
+
+class CHeapSorter : public CSorter {
+public:
+    CHeapSorter(const int input[], int n): CSorter(input, n){}
 
     void heapSort(){
         //build the maxheap
         for (int i = size/2-1; i >=0; i--) {
-        heapify(size, i);
+            heapify(size, i);
         }
 
         for (int i = size -1; i > 0; i--) {
@@ -57,36 +70,26 @@ public:
 
     }
 
+private:
     void heapify(int n, int i) {
 
-            int largest = i;
-            int left =  2*i + 1;
-            int right = 2*i + 2;
+        int largest = i;
+        int left =  2*i + 1;
+        int right = 2*i + 2;
 
-            if (left < n && data[left] > data[largest]) {
-                largest = left;
-            }
-            if (right < n && data[right] > data[largest]){
-                largest = right;
-            }
-            if (largest != i) {
-                swap(data[i], data[largest]);
-                heapify(n,largest);
-            }
-
-    }
-
-
-
-
-    virtual void mergeSort() {
-    }
-
-    void quickSort() {
+        if (left < n && data[left] > data[largest]) {
+            largest = left;
+        }
+        if (right < n && data[right] > data[largest]){
+            largest = right;
+        }
+        if (largest != i) {
+            swap(data[i], data[largest]);
+            heapify(n,largest);
+        }
 
     }
 };
-
 
 
 class CMergeSorter : public CSorter {
@@ -176,12 +179,12 @@ int main() {
     int n = size(values);
 
 
-    CMergeSorter sorter(values , n);
+    CHeapSorter sorter(values , n);
 
     cout<<"Initial array:\n";
     sorter.print();
 
-    sorter.mergeSort();
+    sorter.heapSort();
 
     cout<<"Final array:\n";
     sorter.print();
