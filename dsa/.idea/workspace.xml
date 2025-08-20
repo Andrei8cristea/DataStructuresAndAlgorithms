@@ -24,9 +24,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fd48c24e-d4c5-452e-ac1d-929a88adcef9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../sfml_practice/CSorter.cpp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../sfml_practice/CSorter.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/main.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../sfml_practice/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../sfml_practice/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -68,7 +68,7 @@
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/andrei-cristea/Desktop/Facultate/Anul I/Semestrul 2/SD/pregatire_marire/dsa&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/andrei-cristea/Desktop/Facultate/Anul I/Semestrul 2/SD/pregatire_marire/sfml_practice&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -96,6 +96,9 @@
       <workItem from="1755591327677" duration="20000" />
       <workItem from="1755592032684" duration="1743000" />
       <workItem from="1755615824514" duration="215000" />
+      <workItem from="1755685247517" duration="108000" />
+      <workItem from="1755685363849" duration="34000" />
+      <workItem from="1755685447439" duration="9000" />
     </task>
     <servers />
   </component>
