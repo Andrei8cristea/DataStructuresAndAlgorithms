@@ -4,8 +4,8 @@
 
 sf::Color DARK_BLUE(10, 10, 60);
 
-int WINDOW_WIDTH = 800;
-int WINDOW_HEIGHT = 600;
+constexpr int WINDOW_WIDTH = 800;
+constexpr int WINDOW_HEIGHT = 600;
 
 enum appState { Welcome, Menu, Sorting };
 
@@ -43,7 +43,7 @@ public:
         startButton.setFillColor(sf::Color::Yellow);
         startButton.setOutlineThickness(6);
         startButton.setOutlineColor(sf::Color::Cyan);
-        startButton.setPosition((WINDOW_WIDTH - 200) / 2, (WINDOW_HEIGHT - 60) / 2);
+        startButton.setPosition((WINDOW_WIDTH - 200) / 2.0f, (WINDOW_HEIGHT - 60) / 2.0f);
 
         startText.setFont(font);
         startText.setString("START");
@@ -52,19 +52,21 @@ public:
         centerText(startText, startButton);
 
         //menu buttons
-        float buttonWidth = 300;
-        float buttonHeight = 50;
-        float spacing = 20;
-        float startY = 160;
+
 
         for (int i = 0; i < NUM_METHODS; ++i) {
+            float buttonWidth = 300;
+            float buttonHeight = 50;
+            float spacing = 20;
+            float startY = 160;
+
             buttons[i].setSize(sf::Vector2f(buttonWidth, buttonHeight));
             buttons[i].setFillColor(sf::Color::Yellow);
             buttons[i].setOutlineColor(sf::Color::Cyan);
             buttons[i].setOutlineThickness(2);
             buttons[i].setPosition(
-                window.getSize().x / 2.0f - buttonWidth / 2.0f,
-                startY + i * (buttonHeight + spacing)
+                static_cast<float>(window.getSize().x) / 2.0f - buttonWidth / 2.0f,
+                startY + static_cast<float>(i) * (buttonHeight + spacing)
             );
 
             texts[i].setFont(font);
@@ -77,12 +79,16 @@ public:
 
     void centerWindow() {
         sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
-        int posX = (desktop.width - WINDOW_WIDTH) / 2;
-        int posY = (desktop.height - WINDOW_HEIGHT) / 2;
+        int posX = static_cast<int>(desktop.width) - WINDOW_WIDTH;
+        posX /= 2;
+
+        int posY = static_cast<int>(desktop.height) - WINDOW_HEIGHT;
+        posY /= 2;
+
         window.setPosition(sf::Vector2i(posX, posY));
     }
 
-    void centerText(sf::Text &text, const sf::RectangleShape &rect) {
+    static void centerText(sf::Text &text, const sf::RectangleShape &rect) {
         sf::FloatRect textBounds = text.getLocalBounds();
         text.setOrigin(textBounds.left + textBounds.width / 2.0f,
                        textBounds.top + textBounds.height / 2.0f);
@@ -93,7 +99,7 @@ public:
 
     void run() {
         while (window.isOpen()) {
-            sf::Event event;
+            sf::Event event{};
             while (window.pollEvent(event)) {
                 handleEvent(event);
             }
@@ -132,8 +138,8 @@ public:
 
                     if (event.type == sf::Event::MouseButtonPressed &&
                         event.mouseButton.button == sf::Mouse::Left) {
-                        //i have to transmit the method to sorting eventhandler
-                        //std::cout << "Selected: " << methods[i] << "\n";
+                        //I have to transmit the method to sorting eventhandler
+                        //std::cut << "Selected: " << methods[i] << "\n";
                         currentState = Sorting;
                     }
                 } else {
@@ -191,7 +197,7 @@ public:
         sf::FloatRect titleBounds = title.getLocalBounds();
         title.setOrigin(titleBounds.left + titleBounds.width / 2.0f,
                         titleBounds.top + titleBounds.height / 2.0f);
-        title.setPosition(window.getSize().x / 2.0f, 80);
+        title.setPosition(static_cast<float>(window.getSize().x) / 2.0f, 80.0f);
 
         window.draw(title);
         for (int i = 0; i < NUM_METHODS; ++i) {
