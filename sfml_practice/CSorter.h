@@ -1,8 +1,7 @@
 #include <iostream>
 #include <ctime>
-#include <random>
+#include <cstdlib>
 #include <climits>
-#include <memory>
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
@@ -30,7 +29,7 @@ struct SStep {
     ActionKind kind;
     int i;
     int j;
-    int value; //eventually for overwrite
+    int value;
 };
 
 struct SStepBuffer {
@@ -43,7 +42,7 @@ struct SStepBuffer {
 
     void reserve(int newCapacity) {
         if (newCapacity <= capacity) return;
-        auto* nd = new SStep[newCapacity];
+        SStep* nd = new SStep[newCapacity];
         for (int k = 0; k < size; ++k) nd[k] = data[k];
         delete[] data;
         data = nd;
@@ -63,15 +62,14 @@ struct SStepBuffer {
 // -----------------------------
 class CSorter {
 protected:
-    int data[CONST_MAX_LENGTH]{};  //initializing array with 0
+    int data[CONST_MAX_LENGTH];
     int size;
 
 public:
-    CSorter(const int input[], int n) : size(n) {
+    CSorter(const int input[], int n) {
+        size = n;
         for (int i = 0; i < n; ++i) data[i] = input[i];
     }
-
-    virtual ~CSorter() = default;
 
     // selection sort with optional recording
     void selectionSort(SStepBuffer* rec = nullptr) {
@@ -113,7 +111,6 @@ class CHeapSorter : public CSorter {
 public:
     CHeapSorter(const int input[], int n): CSorter(input, n) {}
 
-
     void heapSort() override {
         for (int i = size/2 - 1; i >= 0; --i) heapify(size, i);
         for (int i = size - 1; i > 0; --i) {
@@ -138,11 +135,9 @@ private:
 class CMergeSorter : public CSorter {
 public:
     CMergeSorter(const int input[], int n): CSorter(input, n) {}
-
-
     void mergeSort() override { mergeSortHelper(data, size); }
 private:
-    void static mergeSortHelper(int array[], int length) {
+    void mergeSortHelper(int array[], int length) {
         if (length <= 1) return;
         int middle = length / 2;
         int leftArray[CONST_MAX_LENGTH];
@@ -157,8 +152,7 @@ private:
         mergeSortHelper(rightArray, rightSize);
         merge(leftArray, leftSize, rightArray, rightSize, array);
     }
-
-    static void merge(const int leftArray[], int leftSize, const int rightArray[], int rightSize, int array[]) {
+    void merge(int leftArray[], int leftSize, int rightArray[], int rightSize, int array[]) {
         int i = 0, l = 0, r = 0;
         while (l < leftSize && r < rightSize) {
             if (leftArray[l] < rightArray[r]) array[i++] = leftArray[l++];
@@ -172,10 +166,9 @@ private:
 class CQuickSorter : public CSorter {
 public:
     CQuickSorter(int input[], int n): CSorter(input, n) {}
-
     void quickSort() override { quickSortRecursive(data, 0, size - 1); }
 private:
-    void static quickSortRecursive(int array[], int start, int end) {
+    void quickSortRecursive(int array[], int start, int end) {
         if (start >= end) return;
         int i = start - 1;
         for (int j = start; j < end; ++j) {
@@ -217,12 +210,8 @@ private:
 
 public:
     CSortingVisualizer(const int* values, int n, float windowWidth, float windowHeight)
-        : bars(nullptr), size(n), barWidth(0.f), baseY(windowHeight - 50.0f) {
-        if (n <= 0) {
-            size = 0;
-            bars = nullptr;
-            return;
-        }
+        : size(n), bars(nullptr), barWidth(0.f), baseY(windowHeight - 50.0f) {
+        if (n <= 0) { size = 0; bars = nullptr; return; }
         barWidth = (windowWidth - 2.0f * LATERAL_MARGIN) / static_cast<float>(n);
         bars = new CBar[n];
         for (int i = 0; i < n; ++i) {
@@ -230,37 +219,28 @@ public:
             bars[i] = CBar(values[i], x, baseY, barWidth - SPACE_BETWEEN_BARS);
         }
     }
-
     ~CSortingVisualizer() { delete[] bars; }
 
-    //I made them non-copyable and non-movable to prevent issues
-    CSortingVisualizer(const CSortingVisualizer&) = delete;
-    CSortingVisualizer& operator=(const CSortingVisualizer&) = delete;
-    CSortingVisualizer(CSortingVisualizer&&) = delete;
-    CSortingVisualizer& operator=(CSortingVisualizer&&) = delete;
-
     void drawBars(sf::RenderWindow& window) const {
-        if (!bars) return;
         for (int i = 0; i < size; ++i) window.draw(bars[i].shape);
     }
 
-    void highlight(int index, const sf::Color &c1, const sf::Color &c2, float thickness) const  {
-        if (!bars || index < 0 || index >= size) return;
-        bars[index].highlight(c1, c2, thickness);
+    void highlight(int index, const sf::Color &c1, const sf::Color &c2, float thickness) {
+        if (index >= 0 && index < size) bars[index].highlight(c1, c2, thickness);
     }
 
-    [[nodiscard]] float getBarX(int index) const {
-        if (!bars || index < 0 || index >= size) return 0.0f;
+    float getBarX(int index) const {
+        if (index < 0 || index >= size) return 0.0f;
         return bars[index].shape.getPosition().x;
     }
 
-    void setBarX(int index, float x) const {
-        if (!bars || index < 0 || index >= size) return;
+    void setBarX(int index, float x) {
+        if (index < 0 || index >= size) return;
         bars[index].shape.setPosition(x, baseY - static_cast<float>(bars[index].value));
     }
 
-    void finalizeSwap(int i, int j) const {
-        if (!bars || i < 0 || j < 0 || i >= size || j >= size) return;
+    void finalizeSwap(int i, int j) {
+        if (i < 0 || j < 0 || i >= size || j >= size) return;
         CBar tmp = bars[i];
         bars[i] = bars[j];
         bars[j] = tmp;
@@ -270,15 +250,15 @@ public:
         bars[j].shape.setPosition(xj, baseY - static_cast<float>(bars[j].value));
     }
 
-    void overwriteValue(int index, int value) const{
-        if (!bars || index < 0 || index >= size) return;
+    void overwriteValue(int index, int value) {
+        if (index < 0 || index >= size) return;
         bars[index].value = value;
         bars[index].shape.setSize(sf::Vector2f(barWidth - SPACE_BETWEEN_BARS, static_cast<float>(value)));
         float x = LATERAL_MARGIN + static_cast<float>(index) * barWidth;
         bars[index].shape.setPosition(x, baseY - static_cast<float>(value));
     }
 
-    [[nodiscard]] int getSize() const { return size; }
+    int getSize() const { return size; }
 };
 
 // -----------------------------
@@ -321,38 +301,30 @@ private:
         sf::Clock clock;
     } swapAnim;
 
-    struct HighlightEntry {
-        int idx = -1;
-        float duration = 0.0f;
-        sf::Clock clock;
-    };
+    struct HighlightEntry { int idx; float duration; sf::Clock clock; };
     HighlightEntry highlights[128];
     int highlightsCount = 0;
 
-    static constexpr float compareDuration = 0.09f;
+    float compareDuration = 0.09f;
     float swapDuration = 0.18f;
     sf::Color compareColorA = sf::Color::Red;
     sf::Color compareColorB = sf::Color::Cyan;
     sf::Color defaultBarColor = sf::Color::Yellow;
     sf::Color sortedColor = sf::Color(100, 255, 100);
 
-    std::unique_ptr<CSortingVisualizer> visual;
-    int currentArrayValues[CONST_MAX_LENGTH]{};  // Initialize array
+    CSortingVisualizer* visual = nullptr;
+    int currentArrayValues[CONST_MAX_LENGTH];
     int currentN = 0;
 
-    //used for random number gen
-    std::random_device rd;
-    std::mt19937 gen;
-
 public:
-    CApp() : window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "DSA"),
-             currentState(Welcome),
-             gen(rd()) {
+    CApp() : window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "DSA"), currentState(Welcome) {
         centerWindow();
         if (!font.loadFromFile("DejaVuSans.ttf")) {
             std::cerr << "Could not load font! (place DejaVuSans.ttf next to exe)\n";
-            //continue anyway
+            // continue anyway
         }
+
+        std::srand(static_cast<unsigned>(std::time(nullptr)));
 
         startButton.setSize(sf::Vector2f(200, 60));
         startButton.setFillColor(sf::Color::Yellow);
@@ -423,11 +395,37 @@ public:
         }
 
         if (currentState == Welcome) {
-            handleWelcomeEvent(event);
+            if (event.type == sf::Event::KeyPressed &&
+                event.key.code == sf::Keyboard::Enter) {
+                currentState = Menu;
+            }
+            if (event.type == sf::Event::MouseButtonPressed &&
+                event.mouseButton.button == sf::Mouse::Left) {
+                sf::Vector2f mouseWorldPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+                if (startButton.getGlobalBounds().contains(mouseWorldPos)) currentState = Menu;
+            }
         } else if (currentState == Menu) {
-            handleMenuEvent(event);
+            sf::Vector2f mouseWorldPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+            for (int i = 0; i < NUM_METHODS; ++i) {
+                if (buttons[i].getGlobalBounds().contains(mouseWorldPos)) {
+                    buttons[i].setFillColor(sf::Color::Cyan);
+                    texts[i].setFillColor(sf::Color::Blue);
+                    if (event.type == sf::Event::MouseButtonPressed &&
+                        event.mouseButton.button == sf::Mouse::Left) {
+                        methodSelected = i;
+                        prepareSorting(methodSelected);
+                        currentState = Sorting;
+                    }
+                } else {
+                    buttons[i].setFillColor(sf::Color::Yellow);
+                    texts[i].setFillColor(sf::Color::Black);
+                }
+            }
         } else if (currentState == Sorting) {
-            handleSortingEvent(event);
+            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::B) {
+                cleanupSorting();
+                currentState = Menu;
+            }
         }
     }
 
@@ -441,77 +439,28 @@ public:
         window.display();
     }
 
-private:
-    void handleWelcomeEvent(const sf::Event& event) {
-        if (event.type == sf::Event::KeyPressed &&
-            event.key.code == sf::Keyboard::Enter) {
-            currentState = Menu;
-        }
-        if (event.type == sf::Event::MouseButtonPressed &&
-            event.mouseButton.button == sf::Mouse::Left) {
-            sf::Vector2f mouseWorldPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-            if (startButton.getGlobalBounds().contains(mouseWorldPos)) {
-                currentState = Menu;
-            }
-        }
-    }
-
-    void handleMenuEvent(const sf::Event& event) {
-        sf::Vector2f mouseWorldPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-        for (int i = 0; i < NUM_METHODS; ++i) {
-            if (buttons[i].getGlobalBounds().contains(mouseWorldPos)) {
-                buttons[i].setFillColor(sf::Color::Cyan);
-                texts[i].setFillColor(sf::Color::Blue);
-                if (event.type == sf::Event::MouseButtonPressed &&
-                    event.mouseButton.button == sf::Mouse::Left) {
-                    methodSelected = i;
-                    prepareSorting(methodSelected);
-                    currentState = Sorting;
-                }
-            } else {
-                buttons[i].setFillColor(sf::Color::Yellow);
-                texts[i].setFillColor(sf::Color::Black);
-            }
-        }
-    }
-
-    void handleSortingEvent(const sf::Event& event) {
-        if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::B) {
-            cleanupSorting();
-            currentState = Menu;
-        }
-        //TODO implement pause and speed of sorting adjustments
-    }
-
     void renderWelcome() {
         sf::Text title("Sorting animation by Andrei Cristea", font, 30);
         title.setFillColor(sf::Color::Yellow);
         title.setPosition(100, 100);
         window.draw(title);
 
-        renderStartButton();
-    }
-
-    void renderStartButton() {
         sf::Vector2f mouseWorldPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-        sf::RectangleShape button = startButton;
-        sf::Text text = startText;
-
-        if (button.getGlobalBounds().contains(mouseWorldPos)) {
-            button.setFillColor(sf::Color::Cyan);
-            button.setOutlineColor(sf::Color::Yellow);
-            text.setFillColor(sf::Color::Blue);
-            text.setCharacterSize(40);
-            centerText(text, button);
+        if (startButton.getGlobalBounds().contains(mouseWorldPos)) {
+            startButton.setFillColor(sf::Color::Cyan);
+            startButton.setOutlineColor(sf::Color::Yellow);
+            startText.setFillColor(sf::Color::Blue);
+            startText.setCharacterSize(40);
+            centerText(startText, startButton);
         } else {
-            button.setFillColor(sf::Color::Yellow);
-            button.setOutlineColor(sf::Color::Cyan);
-            text.setFillColor(sf::Color::Black);
-            text.setCharacterSize(24);
-            centerText(text, button);
+            startButton.setFillColor(sf::Color::Yellow);
+            startButton.setOutlineColor(sf::Color::Cyan);
+            startText.setFillColor(sf::Color::Black);
+            startText.setCharacterSize(24);
+            centerText(startText, startButton);
         }
-        window.draw(button);
-        window.draw(text);
+        window.draw(startButton);
+        window.draw(startText);
     }
 
     void renderMenu() {
@@ -533,35 +482,26 @@ private:
         title.setFillColor(sf::Color::White);
         title.setPosition(20, 20);
         window.draw(title);
-        if (visual) {
-            visual->drawBars(window);
-        }
+        if (visual) visual->drawBars(window);
     }
 
-    static float linearInterpolate(float a, float b, float t) {
-        return a + (b - a) * t;
-    }
-
-    static float easeInOutQuad(float t) {
+private:
+    float lerp(float a, float b, float t) { return a + (b-a) * t; }
+    float easeInOutQuad(float t) {
         if (t < 0.5f) return 2.0f * t * t;
-        t = t - 0.5f;
-        return -2.0f * t * t + 1.0f;
+        t = t - 0.5f; return -2.0f * t * t + 1.0f;
     }
 
-    void startHighlight(int idx) {
-        if (highlightsCount < 128) {
-            highlights[highlightsCount++] = HighlightEntry{idx, compareDuration, sf::Clock()};
-        } else {
-            highlights[127] = HighlightEntry{idx, compareDuration, sf::Clock()};
-        }
+    void startHighlight(int idx, float duration) {
+        if (idx < 0) return;
+        if (highlightsCount < 128) highlights[highlightsCount++] = HighlightEntry{idx, duration, sf::Clock()};
+        else highlights[127] = HighlightEntry{idx, duration, sf::Clock()};
     }
 
     void updateHighlights() {
         for (int k = 0; k < highlightsCount; ++k) {
             if (highlights[k].clock.getElapsedTime().asSeconds() >= highlights[k].duration) {
-                if (visual) {
-                    visual->highlight(highlights[k].idx, defaultBarColor, sf::Color::Transparent, 0.0f);
-                }
+                if (visual) visual->highlight(highlights[k].idx, defaultBarColor, sf::Color::Transparent, 0.0f);
                 highlights[k] = highlights[--highlightsCount];
                 --k;
             }
@@ -570,22 +510,13 @@ private:
 
     void applyStepImmediate(const SStep &s) {
         if (!visual) return;
-
         switch (s.kind) {
             case ACT_COMPARE:
-                if (s.i >= 0) {
-                    visual->highlight(s.i, compareColorA, sf::Color::White, 2.0f);
-                    startHighlight(s.i);
-                }
-                if (s.j >= 0) {
-                    visual->highlight(s.j, compareColorB, sf::Color::White, 2.0f);
-                    startHighlight(s.j);
-                }
+                if (s.i >= 0) { visual->highlight(s.i, compareColorA, sf::Color::White, 2.0f); startHighlight(s.i, compareDuration); }
+                if (s.j >= 0) { visual->highlight(s.j, compareColorB, sf::Color::White, 2.0f); startHighlight(s.j, compareDuration); }
                 break;
             case ACT_HIGHLIGHT:
-                if (s.i >= 0) {
-                    visual->highlight(s.i, sortedColor, sf::Color::White, 3.0f);
-                }
+                if (s.i >= 0) visual->highlight(s.i, sortedColor, sf::Color::White, 3.0f);
                 break;
             case ACT_OVERWRITE:
                 visual->overwriteValue(s.i, s.value);
@@ -603,17 +534,33 @@ private:
 
         // animate ongoing swap
         if (swapAnim.active) {
-            updateSwapAnimation();
+            float t = swapAnim.clock.getElapsedTime().asSeconds() / swapAnim.duration;
+            if (t >= 1.0f) {
+                visual->finalizeSwap(swapAnim.i, swapAnim.j);
+                swapAnim.active = false;
+            } else {
+                float e = easeInOutQuad(t);
+                float xi = lerp(swapAnim.startXi, swapAnim.startXj, e);
+                float xj = lerp(swapAnim.startXj, swapAnim.startXi, e);
+                visual->setBarX(swapAnim.i, xi);
+                visual->setBarX(swapAnim.j, xj);
+            }
             return;
         }
 
         if (playIndex >= steps.size) return;
+
         if (stepClock.getElapsedTime().asSeconds() < stepInterval) return;
 
         SStep s = steps.data[playIndex];
 
         if (s.kind == ACT_SWAP) {
-            startSwapAnimation(s);
+            swapAnim.active = true;
+            swapAnim.i = s.i; swapAnim.j = s.j;
+            swapAnim.startXi = visual->getBarX(s.i);
+            swapAnim.startXj = visual->getBarX(s.j);
+            swapAnim.duration = swapDuration;
+            swapAnim.clock.restart();
         } else {
             applyStepImmediate(s);
         }
@@ -622,40 +569,9 @@ private:
         stepClock.restart();
     }
 
-    void updateSwapAnimation() {
-        if (!visual) return;
-
-        float t = swapAnim.clock.getElapsedTime().asSeconds() / swapAnim.duration;
-        if (t >= 1.0f) {
-            visual->finalizeSwap(swapAnim.i, swapAnim.j);
-            swapAnim.active = false;
-        } else {
-            float e = easeInOutQuad(t);
-            float xi = linearInterpolate(swapAnim.startXi, swapAnim.startXj, e);
-            float xj = linearInterpolate(swapAnim.startXj, swapAnim.startXi, e);
-            visual->setBarX(swapAnim.i, xi);
-            visual->setBarX(swapAnim.j, xj);
-        }
-    }
-
-    void startSwapAnimation(const SStep& s) {
-        if (!visual) return;
-
-        swapAnim.active = true;
-        swapAnim.i = s.i;
-        swapAnim.j = s.j;
-        swapAnim.startXi = visual->getBarX(s.i);
-        swapAnim.startXj = visual->getBarX(s.j);
-        swapAnim.duration = swapDuration;
-        swapAnim.clock.restart();
-    }
-
     void prepareSorting(int method) {
         currentN = 30; // choose size
-        std::uniform_int_distribution<> dis(20, 419);
-        for (int k = 0; k < currentN; ++k) {
-            currentArrayValues[k] = dis(gen);
-        }
+        for (int k = 0; k < currentN; ++k) currentArrayValues[k] = std::rand() % 400 + 20;
 
         steps.clear();
 
@@ -665,12 +581,10 @@ private:
             s.selectionSort(&steps);
         }
 
-        visual = std::make_unique<CSortingVisualizer>(
-            currentArrayValues,
-            currentN,
-            static_cast<float>(WINDOW_WIDTH),
-            static_cast<float>(WINDOW_HEIGHT)
-        );
+        if (visual) { delete visual; visual = nullptr; }
+        visual = new CSortingVisualizer(currentArrayValues, currentN,
+                                        static_cast<float>(WINDOW_WIDTH),
+                                        static_cast<float>(WINDOW_HEIGHT));
 
         playIndex = 0;
         stepClock.restart();
@@ -680,7 +594,7 @@ private:
     }
 
     void cleanupSorting() {
-        visual.reset();
+        if (visual) { delete visual; visual = nullptr; }
         steps.clear();
         playIndex = 0;
         recorded = false;
