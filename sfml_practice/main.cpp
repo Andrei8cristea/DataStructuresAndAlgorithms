@@ -73,7 +73,7 @@ public:
 
     virtual ~CSorter() = default;
 
-    // selection sort with optional recording
+    //selection sort with optional recording
     void selectionSort(SStepBuffer* rec = nullptr) {
         for (int j = 0; j < size - 1; ++j) {
             int minVal = INT_MAX;
@@ -98,13 +98,18 @@ public:
     virtual void mergeSort() {}
     virtual void quickSort() {}
 
-    void insertionSort() {
+    void insertionSort(SStepBuffer* rec = nullptr) {
         for (int i = 0; i <= size - 1; ++i) {
             int j = i;
             while (j > 0 && data[j-1] > data[j]) {
+                if (rec) {
+                    rec->push_back(SStep{ACT_COMPARE,j-1,j,0});
+                    rec->push_back(SStep{ACT_SWAP,j,j-1,0});
+                }
                 std::swap(data[j], data[j-1]);
                 --j;
             }
+            if (rec) rec->push_back(SStep{ACT_HIGHLIGHT, i, -1, 0});
         }
     }
 };
@@ -309,7 +314,7 @@ private:
 
     SStepBuffer steps;
     int playIndex = 0;
-    float stepInterval = 0.12f;
+    float stepInterval = 0.08f;
     sf::Clock stepClock;
     bool recorded = false;
 
@@ -317,7 +322,7 @@ private:
         bool active = false;
         int i = -1, j = -1;
         float startXi = 0.0f, startXj = 0.0f;
-        float duration = 0.18f;
+        float duration = 0.25f;
         sf::Clock clock;
     } swapAnim;
 
@@ -329,15 +334,25 @@ private:
     HighlightEntry highlights[128];
     int highlightsCount = 0;
 
-    static constexpr float compareDuration = 0.09f;
-    float swapDuration = 0.18f;
-    sf::Color compareColorA = sf::Color::Red;
-    sf::Color compareColorB = sf::Color::Cyan;
+
+    struct CompletionAnim {
+        bool active = false;
+        int currentIndex = 0;
+        float highlightDuration = 0.08f;
+        sf::Clock clock;
+    } completionAnim;
+
+    // Improved colors and timing
+    static constexpr float compareDuration = 0.15f;
+    float swapDuration = 0.25f;
+    sf::Color compareColorA = sf::Color(255, 100, 100);
+    sf::Color compareColorB = sf::Color(100, 150, 255);
     sf::Color defaultBarColor = sf::Color::Yellow;
-    sf::Color sortedColor = sf::Color(100, 255, 100);
+    sf::Color sortedColor = sf::Color(80, 200, 80);
+    sf::Color finalGreenColor = sf::Color(50, 150, 50);
 
     std::unique_ptr<CSortingVisualizer> visual;
-    int currentArrayValues[CONST_MAX_LENGTH]{};  // Initialize array
+    int currentArrayValues[CONST_MAX_LENGTH]{};
     int currentN = 0;
 
     //used for random number gen
@@ -529,10 +544,18 @@ private:
     }
 
     void renderSorting() {
-        sf::Text title("Sorting in progress...", font, 30);
+        sf::Text title(methods[methodSelected], font, 42);
         title.setFillColor(sf::Color::White);
         title.setPosition(20, 20);
+
+
+        sf::Text subtitle("Sorting in progress...\nPress \"b\" for going back to menu" , font, 18 );
+        subtitle.setFillColor(sf::Color::White);
+        subtitle.setPosition(450,20);
+
+
         window.draw(title);
+        window.draw(subtitle);
         if (visual) {
             visual->drawBars(window);
         }
@@ -542,10 +565,11 @@ private:
         return a + (b - a) * t;
     }
 
-    static float easeInOutQuad(float t) {
-        if (t < 0.5f) return 2.0f * t * t;
-        t = t - 0.5f;
-        return -2.0f * t * t + 1.0f;
+
+    static float easeInOutCubic(float t) {
+        if (t < 0.5f) return 4.0f * t * t * t;
+        t = t - 1.0f;
+        return 1.0f + 4.0f * t * t * t;
     }
 
     void startHighlight(int idx) {
@@ -568,23 +592,30 @@ private:
         }
     }
 
+    // Updated applyStepImmediate for better visual feedback
     void applyStepImmediate(const SStep &s) {
         if (!visual) return;
 
         switch (s.kind) {
             case ACT_COMPARE:
+                for (int k = 0; k < visual->getSize(); ++k) {
+                    if (k != s.i && k != s.j) {
+                        visual->highlight(k, defaultBarColor, sf::Color::Transparent, 0.0f);
+                    }
+                }
+
                 if (s.i >= 0) {
-                    visual->highlight(s.i, compareColorA, sf::Color::White, 2.0f);
+                    visual->highlight(s.i, compareColorA, sf::Color::White, 3.0f);
                     startHighlight(s.i);
                 }
                 if (s.j >= 0) {
-                    visual->highlight(s.j, compareColorB, sf::Color::White, 2.0f);
+                    visual->highlight(s.j, compareColorB, sf::Color::White, 3.0f);
                     startHighlight(s.j);
                 }
                 break;
             case ACT_HIGHLIGHT:
                 if (s.i >= 0) {
-                    visual->highlight(s.i, sortedColor, sf::Color::White, 3.0f);
+                    visual->highlight(s.i, sortedColor, sf::Color::White, 2.0f);
                 }
                 break;
             case ACT_OVERWRITE:
@@ -596,18 +627,32 @@ private:
         }
     }
 
+
     void updateSorting() {
-        if (!recorded || !visual) return;
+        if (!visual) return;
 
         updateHighlights();
 
-        // animate ongoing swap
+
+        if (completionAnim.active) {
+            updateCompletionAnimation();
+            return;
+        }
+
+
         if (swapAnim.active) {
             updateSwapAnimation();
             return;
         }
 
-        if (playIndex >= steps.size) return;
+        if (playIndex >= steps.size) {
+            if (!completionAnim.active && recorded) {
+                startCompletionAnimation();
+
+            }
+            return;
+        }
+
         if (stepClock.getElapsedTime().asSeconds() < stepInterval) return;
 
         SStep s = steps.data[playIndex];
@@ -622,6 +667,44 @@ private:
         stepClock.restart();
     }
 
+
+    void startCompletionAnimation() {
+        completionAnim.active = true;
+        completionAnim.currentIndex = 0;
+        completionAnim.clock.restart();
+
+        // Clear all highlights first
+        for (int i = 0; i < visual->getSize(); ++i) {
+            visual->highlight(i, defaultBarColor, sf::Color::Transparent, 0.0f);
+        }
+    }
+
+    void updateCompletionAnimation() {
+        if (!visual) return;
+
+        if (completionAnim.clock.getElapsedTime().asSeconds() >= completionAnim.highlightDuration) {
+            if (completionAnim.currentIndex < visual->getSize()) {
+
+                visual->highlight(completionAnim.currentIndex, finalGreenColor, sf::Color::White, 2.0f);
+
+
+                if (completionAnim.currentIndex > 0) {
+                    visual->highlight(completionAnim.currentIndex - 1, sortedColor, sf::Color::Transparent, 0.0f);
+                }
+
+                completionAnim.currentIndex++;
+                completionAnim.clock.restart();
+            } else {
+
+                for (int i = 0; i < visual->getSize(); ++i) {
+                    visual->highlight(i, sortedColor, sf::Color::Transparent, 0.0f);
+                }
+                completionAnim.active = false;
+            }
+        }
+    }
+
+    // Updated updateSwapAnimation with better easing
     void updateSwapAnimation() {
         if (!visual) return;
 
@@ -630,7 +713,7 @@ private:
             visual->finalizeSwap(swapAnim.i, swapAnim.j);
             swapAnim.active = false;
         } else {
-            float e = easeInOutQuad(t);
+            float e = easeInOutCubic(t);
             float xi = linearInterpolate(swapAnim.startXi, swapAnim.startXj, e);
             float xj = linearInterpolate(swapAnim.startXj, swapAnim.startXi, e);
             visual->setBarX(swapAnim.i, xi);
@@ -651,7 +734,7 @@ private:
     }
 
     void prepareSorting(int method) {
-        currentN = 30; // choose size
+        currentN = 10;  // Increased for better visual effect
         std::uniform_int_distribution<> dis(20, 419);
         for (int k = 0; k < currentN; ++k) {
             currentArrayValues[k] = dis(gen);
@@ -659,10 +742,33 @@ private:
 
         steps.clear();
 
-        // For now record only Selection sort (others use non-recording variants)
-        {
-            CSorter s(currentArrayValues, currentN);
-            s.selectionSort(&steps);
+        CSorter s(currentArrayValues, currentN);
+
+        switch (method) {
+            case 0: // Insertion Sort
+                s.insertionSort(&steps);
+                recorded = true;
+                break;
+            case 1: // Selection Sort
+                s.selectionSort(&steps);
+                recorded = true;
+                break;
+            case 2: // Quick Sort
+                s.quickSort();
+                recorded = false;
+                break;
+            case 3: // Merge Sort
+                s.mergeSort();
+                recorded = false;
+                break;
+            case 4: // Heap Sort
+                s.heapSort();
+                recorded = false;
+                break;
+            default:
+                s.selectionSort(&steps);
+                recorded = true;
+                break;
         }
 
         visual = std::make_unique<CSortingVisualizer>(
@@ -675,7 +781,7 @@ private:
         playIndex = 0;
         stepClock.restart();
         swapAnim.active = false;
-        recorded = true;
+        completionAnim.active = false;
         highlightsCount = 0;
     }
 
@@ -685,6 +791,7 @@ private:
         playIndex = 0;
         recorded = false;
         swapAnim.active = false;
+        completionAnim.active = false;
         highlightsCount = 0;
     }
 };
