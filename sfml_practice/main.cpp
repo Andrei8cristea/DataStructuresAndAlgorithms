@@ -359,10 +359,13 @@ private:
     std::random_device rd;
     std::mt19937 gen;
 
+    //for handle menu event ux
+    int menuCursor = 0;
+
 public:
     CApp() : window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "DSA"),
              currentState(Welcome),
-             gen(rd()) {
+             gen(rd()),menuCursor(0) {
         centerWindow();
         if (!font.loadFromFile("DejaVuSans.ttf")) {
             std::cerr << "Could not load font! (place DejaVuSans.ttf next to exe)\n";
@@ -470,11 +473,54 @@ private:
             }
         }
     }
+    void updateMenuColors() {
+        for (int i = 0; i < NUM_METHODS; i++) {
+            if (i == menuCursor) {
+                buttons[i].setFillColor(sf::Color::Cyan);
+                texts[i].setFillColor(sf::Color::Blue);
+            } else {
+                buttons[i].setFillColor(sf::Color::Yellow);
+                texts[i].setFillColor(sf::Color::Black);
+            }
+        }
+    }
+
+
 
     void handleMenuEvent(const sf::Event& event) {
+
+        //adding interaction for up down keys and enter also
+        if (event.type == sf::Event::KeyPressed) {
+            if (event.key.code == sf::Keyboard::Down) {
+                menuCursor = (menuCursor + 1) % NUM_METHODS;
+                updateMenuColors();
+            } else if (event.key.code == sf::Keyboard::Up) {
+                menuCursor = (menuCursor - 1 + NUM_METHODS) % NUM_METHODS;
+
+                updateMenuColors();
+            } else if (event.key.code == sf::Keyboard::Enter) {
+                methodSelected = menuCursor;
+                prepareSorting(methodSelected);
+                currentState = Sorting;
+                return;
+            } else if (event.key.code == sf::Keyboard::B) {
+                currentState=Welcome;
+                menuCursor = 0;
+                return;
+            }
+        }
+
+
+        //mouse interaction
         sf::Vector2f mouseWorldPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+        bool anyHover = false;
         for (int i = 0; i < NUM_METHODS; ++i) {
             if (buttons[i].getGlobalBounds().contains(mouseWorldPos)) {
+
+                anyHover = true;
+                menuCursor = i;
+
+
                 buttons[i].setFillColor(sf::Color::Cyan);
                 texts[i].setFillColor(sf::Color::Blue);
                 if (event.type == sf::Event::MouseButtonPressed &&
@@ -482,13 +528,19 @@ private:
                     methodSelected = i;
                     prepareSorting(methodSelected);
                     currentState = Sorting;
-                }
+                    }
+            } if (i == menuCursor && !anyHover) {
+                buttons[i].setFillColor(sf::Color::Cyan);
+                texts[i].setFillColor(sf::Color::Blue);
+            } else if (i == menuCursor && anyHover) {
+                buttons[i].setFillColor(sf::Color::Yellow);
+                texts[i].setFillColor(sf::Color::Black);
             } else {
                 buttons[i].setFillColor(sf::Color::Yellow);
                 texts[i].setFillColor(sf::Color::Black);
             }
+            }
         }
-    }
 
     void handleSortingEvent(const sf::Event& event) {
         if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::B) {
@@ -536,11 +588,21 @@ private:
         title.setOrigin(titleBounds.left + titleBounds.width / 2.0f,
                         titleBounds.top + titleBounds.height / 2.0f);
         title.setPosition(static_cast<float>(window.getSize().x) / 2.0f, 80.0f);
+
+        sf::Text goBackText("Press \"B\" for going back" , font, 18);
+        goBackText.setFillColor(sf::Color::White);
+        goBackText.setPosition(287,510);
+
         window.draw(title);
         for (int i = 0; i < NUM_METHODS; ++i) {
             window.draw(buttons[i]);
             window.draw(texts[i]);
         }
+
+
+
+        window.draw(goBackText);
+
     }
 
     void renderSorting() {
