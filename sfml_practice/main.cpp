@@ -601,11 +601,16 @@ private:
             if (event.key.code == sf::Keyboard::Right) {
                 float oldSpeed = appSpeed;
                 appSpeed += 0.1f;
+                if (appSpeed > 5.0f) appSpeed += 0.9f;
+                if (appSpeed > 10.0f) appSpeed += 1.0f;
                 if (appSpeed > 30.0f) appSpeed = 30.0f;
                 updateDurationsAndAdjustRunning(oldSpeed);
             } else if (event.key.code == sf::Keyboard::Left) {
                 float oldSpeed = appSpeed;
                 appSpeed -= 0.1f;
+                if (appSpeed < 30.0f) appSpeed -=1.9f;
+                if (appSpeed < 10.0f) appSpeed +=1.0f;
+                if (appSpeed < 4.0f) appSpeed +=0.9f;
                 if (appSpeed < 0.1f) appSpeed = 0.1f;
                 updateDurationsAndAdjustRunning(oldSpeed);
             } else if (event.key.code == sf::Keyboard::Space
@@ -617,8 +622,6 @@ private:
 
 
         }
-        //TODO implement pause and speed of sorting adjustments
-
 
 
 
