@@ -15,6 +15,7 @@ constexpr int WINDOW_HEIGHT = 600;
 constexpr float LATERAL_MARGIN = 50.0f;
 constexpr float SPACE_BETWEEN_BARS = 2.0f;
 constexpr int CONST_MAX_LENGTH = 100;
+constexpr int NUMBER_OF_COLUMNS = 100;
 
 // -----------------------------
 // Steps / Buffer (shared types)
@@ -178,17 +179,39 @@ class CQuickSorter : public CSorter {
 public:
     CQuickSorter(int input[], int n): CSorter(input, n) {}
 
-    void quickSort() override { quickSortRecursive(data, 0, size - 1); }
+    void quickSort(SStepBuffer* rec = nullptr) {
+        quickSortRecursive(data, 0, size - 1, rec);
+    }
 private:
-    void static quickSortRecursive(int array[], int start, int end) {
+    void static quickSortRecursive(int array[], int start, int end, SStepBuffer* rec) {
         if (start >= end) return;
+
+        int pivot = array[end];
+
         int i = start - 1;
         for (int j = start; j < end; ++j) {
-            if (array[j] < array[end]) std::swap(array[j], array[++i]);
+
+            if (rec) rec->push_back(SStep{ACT_COMPARE, j,end, 0});
+
+            if (array[j] < pivot) {
+                ++i;
+                if (i != j) {
+                    if (rec) rec->push_back(SStep{ACT_SWAP,i,j,0});
+                }
+                std::swap(array[j], array[i]);
+            }
         }
-        std::swap(array[end], array[i+1]);
-        quickSortRecursive(array, start, i);
-        quickSortRecursive(array, i+2, end);
+
+        if (i+1 != end) {
+            if (rec) rec ->push_back(SStep{ACT_SWAP, i+1, end, 0});
+            std::swap(array[i+1],array[end]);
+        }
+
+        if (rec) rec-> push_back((SStep{ACT_HIGHLIGHT, i+1,-1,0}));
+
+
+        quickSortRecursive(array, start, i, rec);
+        quickSortRecursive(array, i+2, end, rec);
     }
 };
 
@@ -344,7 +367,7 @@ private:
 
     // Improved colors and timing
     static constexpr float compareDuration = 0.15f;
-    float swapDuration = 0.25f;
+    float swapDuration = 0.05f;
     sf::Color compareColorA = sf::Color(255, 100, 100);
     sf::Color compareColorB = sf::Color(100, 150, 255);
     sf::Color defaultBarColor = sf::Color::Yellow;
@@ -513,11 +536,11 @@ private:
 
         //mouse interaction
         sf::Vector2f mouseWorldPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-        bool anyHover = false;
+        //bool anyHover = false;
         for (int i = 0; i < NUM_METHODS; ++i) {
             if (buttons[i].getGlobalBounds().contains(mouseWorldPos)) {
 
-                anyHover = true;
+                //anyHover = true;
                 menuCursor = i;
 
 
@@ -529,13 +552,12 @@ private:
                     prepareSorting(methodSelected);
                     currentState = Sorting;
                     }
-            } if (i == menuCursor && !anyHover) {
+            } if (i == menuCursor ){//&& !anyHover) {
+                //highlight button
                 buttons[i].setFillColor(sf::Color::Cyan);
                 texts[i].setFillColor(sf::Color::Blue);
-            } else if (i == menuCursor && anyHover) {
-                buttons[i].setFillColor(sf::Color::Yellow);
-                texts[i].setFillColor(sf::Color::Black);
             } else {
+                //unhighlight
                 buttons[i].setFillColor(sf::Color::Yellow);
                 texts[i].setFillColor(sf::Color::Black);
             }
@@ -796,7 +818,7 @@ private:
     }
 
     void prepareSorting(int method) {
-        currentN = 10;  // Increased for better visual effect
+        currentN = NUMBER_OF_COLUMNS;  // Increased for better visual effect
         std::uniform_int_distribution<> dis(20, 419);
         for (int k = 0; k < currentN; ++k) {
             currentArrayValues[k] = dis(gen);
@@ -807,30 +829,42 @@ private:
         CSorter s(currentArrayValues, currentN);
 
         switch (method) {
-            case 0: // Insertion Sort
+            case 0: {
+                // Insertion Sort
                 s.insertionSort(&steps);
                 recorded = true;
                 break;
-            case 1: // Selection Sort
+            }
+            case 1: {
+                // Selection Sort
                 s.selectionSort(&steps);
                 recorded = true;
                 break;
-            case 2: // Quick Sort
-                s.quickSort();
-                recorded = false;
+            }
+            case 2: {
+                // Quick Sort
+                CQuickSorter qs(currentArrayValues, currentN);
+                qs.quickSort(&steps);
+                recorded = true;
                 break;
-            case 3: // Merge Sort
+            }
+            case 3: {
+                // Merge Sort
                 s.mergeSort();
                 recorded = false;
                 break;
-            case 4: // Heap Sort
+            }
+            case 4: {
+                // Heap Sort
                 s.heapSort();
                 recorded = false;
                 break;
-            default:
+            }
+            default: {
                 s.selectionSort(&steps);
                 recorded = true;
                 break;
+            }
         }
 
         visual = std::make_unique<CSortingVisualizer>(
