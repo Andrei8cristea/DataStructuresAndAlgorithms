@@ -4,6 +4,10 @@
 #include <climits>
 #include <memory>
 
+#include <sstream>
+#include <iomanip>
+#include <cmath>
+
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
@@ -16,6 +20,7 @@ constexpr float LATERAL_MARGIN = 50.0f;
 constexpr float SPACE_BETWEEN_BARS = 2.0f;
 constexpr int CONST_MAX_LENGTH = 100;
 constexpr int NUMBER_OF_COLUMNS = 100;
+constexpr float DURATION = 1.0f;
 
 // -----------------------------
 // Steps / Buffer (shared types)
@@ -347,12 +352,16 @@ private:
         float startXi = 0.0f, startXj = 0.0f;
         float duration = 0.25f;
         sf::Clock clock;
+
+        float accElapsed = 0.0f;
     } swapAnim;
 
     struct HighlightEntry {
         int idx = -1;
         float duration = 0.0f;
         sf::Clock clock;
+
+        float accElapsed = 0.0f;
     };
     HighlightEntry highlights[128];
     int highlightsCount = 0;
@@ -363,10 +372,12 @@ private:
         int currentIndex = 0;
         float highlightDuration = 0.08f;
         sf::Clock clock;
+
+        float accElapsed = 0.0f;
     } completionAnim;
 
     // Improved colors and timing
-    static constexpr float compareDuration = 0.15f;
+    float compareDuration = 0.15f;
     float swapDuration = 0.05f;
     sf::Color compareColorA = sf::Color(255, 100, 100);
     sf::Color compareColorB = sf::Color(100, 150, 255);
@@ -384,6 +395,18 @@ private:
 
     //for handle menu event ux
     int menuCursor = 0;
+
+    //for handling speed of animations
+    bool paused = false;
+
+    float appSpeed = 1.0f;
+    float stepAccElapsed = 0.0f;
+
+    float baseStepInterval = 0.08f;
+    float baseSwapDuration = 0.25f;
+    float baseCompareDuration = 0.15f;
+    float completionHighlightDuration = 0.08f;
+
 
 public:
     CApp() : window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "DSA"),
@@ -428,6 +451,8 @@ public:
             texts[i].setFillColor(sf::Color::Black);
             centerText(texts[i], buttons[i]);
         }
+
+        updateDurations();
     }
 
     void centerWindow() {
@@ -565,11 +590,40 @@ private:
         }
 
     void handleSortingEvent(const sf::Event& event) {
-        if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::B) {
-            cleanupSorting();
-            currentState = Menu;
+        if (event.type == sf::Event::KeyPressed) {
+            if (event.key.code == sf::Keyboard::B) {
+                cleanupSorting();
+                currentState = Menu;
+                return;
+            }
+
+
+            if (event.key.code == sf::Keyboard::Right) {
+                float oldSpeed = appSpeed;
+                appSpeed += 0.1f;
+                if (appSpeed > 30.0f) appSpeed = 30.0f;
+                updateDurationsAndAdjustRunning(oldSpeed);
+            } else if (event.key.code == sf::Keyboard::Left) {
+                float oldSpeed = appSpeed;
+                appSpeed -= 0.1f;
+                if (appSpeed < 0.1f) appSpeed = 0.1f;
+                updateDurationsAndAdjustRunning(oldSpeed);
+            } else if (event.key.code == sf::Keyboard::Space
+                || event.key.code == sf::Keyboard::P) {
+                togglePause();
+                return;
+            }
+
+
+
         }
         //TODO implement pause and speed of sorting adjustments
+
+
+
+
+
+
     }
 
     void renderWelcome() {
@@ -638,11 +692,33 @@ private:
         subtitle.setPosition(450,20);
 
 
+        float speedDisplay = appSpeed;
+        std::ostringstream ss;
+        ss << "Speed x";
+
+        if (std::fabs(speedDisplay - std::round(speedDisplay)) < 0.005f) {
+            ss << static_cast<int>(std::lround(speedDisplay));
+        } else {
+            ss << std::fixed << std::setprecision(1) << speedDisplay;
+        }
+
+        if (paused) ss << " (paused)";
+
+        std::string speedString =ss.str();
+
+
+
+        sf::Text speedText(speedString , font, 16);
+        speedText.setFillColor(sf::Color::White);
+        speedText.setPosition(20,70);
+
+
         window.draw(title);
         window.draw(subtitle);
         if (visual) {
             visual->drawBars(window);
         }
+        window.draw(speedText);
     }
 
     static float linearInterpolate(float a, float b, float t) {
@@ -658,15 +734,21 @@ private:
 
     void startHighlight(int idx) {
         if (highlightsCount < 128) {
-            highlights[highlightsCount++] = HighlightEntry{idx, compareDuration, sf::Clock()};
+            highlights[highlightsCount] = HighlightEntry{idx, compareDuration, sf::Clock(), 0.0f};
+            highlights[highlightsCount].clock.restart();
+            highlights[highlightsCount].accElapsed = 0.0f;
+            ++highlightsCount;
         } else {
-            highlights[127] = HighlightEntry{idx, compareDuration, sf::Clock()};
+            highlights[127] = HighlightEntry{idx, compareDuration, sf::Clock(), 0.0f};
+            highlights[127].clock.restart();
+            highlights[127].accElapsed = 0.0f;
         }
     }
 
     void updateHighlights() {
         for (int k = 0; k < highlightsCount; ++k) {
-            if (highlights[k].clock.getElapsedTime().asSeconds() >= highlights[k].duration) {
+            float elapsed = highlights[k].accElapsed + highlights[k].clock.getElapsedTime().asSeconds();
+            if (elapsed >= highlights[k].duration) {
                 if (visual) {
                     visual->highlight(highlights[k].idx, defaultBarColor, sf::Color::Transparent, 0.0f);
                 }
@@ -715,6 +797,8 @@ private:
     void updateSorting() {
         if (!visual) return;
 
+        if (paused) return;
+
         updateHighlights();
 
 
@@ -728,16 +812,16 @@ private:
             updateSwapAnimation();
             return;
         }
-
+        float elapsedStep = stepAccElapsed + stepClock.getElapsedTime().asSeconds();
         if (playIndex >= steps.size) {
             if (!completionAnim.active && recorded) {
                 startCompletionAnimation();
-
             }
             return;
         }
 
-        if (stepClock.getElapsedTime().asSeconds() < stepInterval) return;
+
+        if (elapsedStep < stepInterval) return;
 
         SStep s = steps.data[playIndex];
 
@@ -748,6 +832,8 @@ private:
         }
 
         ++playIndex;
+
+        stepAccElapsed = 0.0f;
         stepClock.restart();
     }
 
@@ -755,6 +841,7 @@ private:
     void startCompletionAnimation() {
         completionAnim.active = true;
         completionAnim.currentIndex = 0;
+        completionAnim.accElapsed = 0.0f;
         completionAnim.clock.restart();
 
         // Clear all highlights first
@@ -766,36 +853,37 @@ private:
     void updateCompletionAnimation() {
         if (!visual) return;
 
-        if (completionAnim.clock.getElapsedTime().asSeconds() >= completionAnim.highlightDuration) {
+        float elapsed = completionAnim.accElapsed + completionAnim.clock.getElapsedTime().asSeconds();
+        if (elapsed >= completionAnim.highlightDuration) {
+
             if (completionAnim.currentIndex < visual->getSize()) {
-
                 visual->highlight(completionAnim.currentIndex, finalGreenColor, sf::Color::White, 2.0f);
-
-
                 if (completionAnim.currentIndex > 0) {
                     visual->highlight(completionAnim.currentIndex - 1, sortedColor, sf::Color::Transparent, 0.0f);
                 }
-
                 completionAnim.currentIndex++;
+
+                completionAnim.accElapsed = 0.0f;
                 completionAnim.clock.restart();
             } else {
-
                 for (int i = 0; i < visual->getSize(); ++i) {
                     visual->highlight(i, sortedColor, sf::Color::Transparent, 0.0f);
                 }
                 completionAnim.active = false;
+                completionAnim.accElapsed = 0.0f;
             }
         }
     }
 
-    // Updated updateSwapAnimation with better easing
     void updateSwapAnimation() {
         if (!visual) return;
 
-        float t = swapAnim.clock.getElapsedTime().asSeconds() / swapAnim.duration;
+        float elapsed = swapAnim.accElapsed + swapAnim.clock.getElapsedTime().asSeconds();
+        float t = elapsed / swapAnim.duration;
         if (t >= 1.0f) {
             visual->finalizeSwap(swapAnim.i, swapAnim.j);
             swapAnim.active = false;
+            swapAnim.accElapsed = 0.0f;
         } else {
             float e = easeInOutCubic(t);
             float xi = linearInterpolate(swapAnim.startXi, swapAnim.startXj, e);
@@ -814,6 +902,7 @@ private:
         swapAnim.startXi = visual->getBarX(s.i);
         swapAnim.startXj = visual->getBarX(s.j);
         swapAnim.duration = swapDuration;
+        swapAnim.accElapsed = 0.0f;
         swapAnim.clock.restart();
     }
 
@@ -890,6 +979,92 @@ private:
         completionAnim.active = false;
         highlightsCount = 0;
     }
+
+    void updateDurations() {
+        stepInterval = baseStepInterval / appSpeed;
+        swapDuration = baseSwapDuration / appSpeed;
+        compareDuration = baseCompareDuration / appSpeed;
+
+        completionAnim.highlightDuration = completionHighlightDuration / appSpeed;
+    }
+
+    void togglePause() {
+        paused = !paused;
+        if (paused) {
+            if (swapAnim.active) swapAnim.accElapsed += swapAnim.clock.getElapsedTime().asSeconds();
+            if (completionAnim.active) completionAnim.accElapsed += completionAnim.clock.getElapsedTime().asSeconds();
+            for (int k = 0; k < highlightsCount; ++k) {
+                highlights[k].accElapsed += highlights[k].clock.getElapsedTime().asSeconds();
+            }
+            stepAccElapsed += stepClock.getElapsedTime().asSeconds();
+        } else {
+            if (swapAnim.active) swapAnim.clock.restart();
+            if (completionAnim.active) completionAnim.clock.restart();
+            for (int k = 0; k < highlightsCount; ++k) {
+                highlights[k].clock.restart();
+            }
+            stepClock.restart();
+        }
+    }
+
+    void updateDurationsAndAdjustRunning(float oldSpeed) {
+    // calculăm vechile durate
+    float oldStepInterval = baseStepInterval / oldSpeed;
+    float oldSwapDuration = baseSwapDuration / oldSpeed;
+    float oldCompareDuration = baseCompareDuration / oldSpeed;
+    float oldCompletionDuration = completionHighlightDuration / oldSpeed;
+
+    // actualizăm app-wide durations (noile valori)
+    stepInterval = baseStepInterval / appSpeed;
+    float newSwapDuration = baseSwapDuration / appSpeed;
+    float newCompareDuration = baseCompareDuration / appSpeed;
+    float newCompletionDuration = completionHighlightDuration / appSpeed;
+
+    // Ajustăm swapAnim (dacă rulează)
+    if (swapAnim.active) {
+        float elapsed = swapAnim.accElapsed + swapAnim.clock.getElapsedTime().asSeconds();
+        float p = (oldSwapDuration > 0.0f) ? (elapsed / oldSwapDuration) : 0.0f;
+        if (p < 0.0f) p = 0.0f; if (p > 1.0f) p = 1.0f;
+        swapAnim.accElapsed = p * newSwapDuration;
+        swapAnim.duration = newSwapDuration;
+        swapAnim.clock.restart();
+    }
+
+    // Ajustăm completionAnim (dacă rulează)
+    if (completionAnim.active) {
+        float elapsed = completionAnim.accElapsed + completionAnim.clock.getElapsedTime().asSeconds();
+        float p = (oldCompletionDuration > 0.0f) ? (elapsed / oldCompletionDuration) : 0.0f;
+        if (p < 0.0f) p = 0.0f; if (p > 1.0f) p = 1.0f;
+        completionAnim.accElapsed = p * newCompletionDuration;
+        completionAnim.highlightDuration = newCompletionDuration;
+        completionAnim.clock.restart();
+    }
+
+    // Ajustăm highlights (dacă există)
+    for (int k = 0; k < highlightsCount; ++k) {
+        float elapsed = highlights[k].accElapsed + highlights[k].clock.getElapsedTime().asSeconds();
+        float p = (oldCompareDuration > 0.0f) ? (elapsed / oldCompareDuration) : 0.0f;
+        if (p < 0.0f) p = 0.0f; if (p > 1.0f) p = 1.0f;
+        highlights[k].accElapsed = p * newCompareDuration;
+        highlights[k].duration = newCompareDuration;
+        highlights[k].clock.restart();
+    }
+
+    // Ajustăm stepClock accumulator (pentru pasii dintre step-uri)
+    {
+        float elapsed = stepAccElapsed + stepClock.getElapsedTime().asSeconds();
+        float p = (oldStepInterval > 0.0f) ? (elapsed / oldStepInterval) : 0.0f;
+        if (p < 0.0f) p = 0.0f; if (p > 1.0f) p = 1.0f;
+        stepAccElapsed = p * stepInterval;
+        stepClock.restart();
+    }
+
+    // în final, setăm swapDuration/compareDuration member
+    swapDuration = newSwapDuration;
+    compareDuration = newCompareDuration;
+    completionAnim.highlightDuration = newCompletionDuration;
+}
+
 };
 
 // -----------------------------
