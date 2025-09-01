@@ -151,32 +151,75 @@ public:
     CMergeSorter(const int input[], int n): CSorter(input, n) {}
 
 
-    void mergeSort() override { mergeSortHelper(data, size); }
+    void mergeSort(SStepBuffer* rec = nullptr) {
+        mergeSortHelper(data, size, rec, 0);
+    }
 private:
-    void static mergeSortHelper(int array[], int length) {
+    void static mergeSortHelper(int array[], int length, SStepBuffer* rec, int start) {
         if (length <= 1) return;
+
         int middle = length / 2;
         int leftArray[CONST_MAX_LENGTH];
         int rightArray[CONST_MAX_LENGTH];
         int leftSize = middle, rightSize = length - middle;
-        int i = 0, j = 0;
-        for (; i < length; ++i) {
-            if (i < middle) leftArray[i] = array[i];
-            else { rightArray[j] = array[i]; ++j; }
+
+        for (int i = 0; i < leftSize; ++i) {
+            leftArray[i]  = array[i];
         }
-        mergeSortHelper(leftArray, leftSize);
-        mergeSortHelper(rightArray, rightSize);
-        merge(leftArray, leftSize, rightArray, rightSize, array);
+        for (int i = 0; i < rightSize; ++i) {
+            rightArray[i] = array[middle + i];
+        }
+
+        mergeSortHelper(leftArray, leftSize, rec,start);
+        mergeSortHelper(rightArray, rightSize, rec, start + middle);
+        merge(leftArray, leftSize, rightArray, rightSize, array, start, middle, rec);
     }
 
-    static void merge(const int leftArray[], int leftSize, const int rightArray[], int rightSize, int array[]) {
+    static void merge(const int leftArray[], int leftSize, const int rightArray[],
+        int rightSize, int array[], int start, int middle, SStepBuffer* rec) {
+
         int i = 0, l = 0, r = 0;
+
         while (l < leftSize && r < rightSize) {
-            if (leftArray[l] < rightArray[r]) array[i++] = leftArray[l++];
-            else array[i++] = rightArray[r++];
+            int leftGlobalIdx = start + l;
+            int rightGlobalIdx = start +  middle + r;
+            int writeGlobalIdx = start + i;
+
+            if (rec) rec->push_back(SStep{ACT_COMPARE,leftGlobalIdx,rightGlobalIdx,0});
+
+
+
+            if (leftArray[l] <= rightArray[r]) {
+                array[i] = leftArray[l];
+                if (rec) rec->push_back(SStep{ACT_OVERWRITE,writeGlobalIdx, -1, leftArray[l]});
+                ++l;
+            }
+            else {
+                array[i] = rightArray[r];
+                if (rec) rec->push_back(SStep{ACT_OVERWRITE,writeGlobalIdx, -1, rightArray[r]});
+                ++r;
+            }
+            ++i;
         }
-        while (l < leftSize) array[i++] = leftArray[l++];
-        while (r < rightSize) array[i++] = rightArray[r++];
+        while (l < leftSize) {
+            int writeGlobalIdx = start + i;
+            array[i] = leftArray[l];
+            if (rec) rec->push_back(SStep{ACT_OVERWRITE, writeGlobalIdx, -1, leftArray[l]});
+            ++l; ++i;
+        }
+        while (r < rightSize) {
+            int writeGlobalIdx = start + i;
+            array[i] = rightArray[r];
+            if (rec) rec->push_back(SStep{ACT_OVERWRITE, writeGlobalIdx, -1, rightArray[r]});
+            ++r; ++i;
+        }
+
+        if (rec) {
+            for (int k = 0; k < i; ++k) {
+                int idx = start + k;
+                rec->push_back(SStep{ACT_HIGHLIGHT, idx, -1, 0});
+            }
+        }
     }
 };
 
@@ -817,7 +860,7 @@ private:
         }
         float elapsedStep = stepAccElapsed + stepClock.getElapsedTime().asSeconds();
         if (playIndex >= steps.size) {
-            if (!completionAnim.active && recorded) {
+            if (recorded) {
                 startCompletionAnimation();
             }
             return;
@@ -942,8 +985,9 @@ private:
             }
             case 3: {
                 // Merge Sort
-                s.mergeSort();
-                recorded = false;
+                CMergeSorter ms(currentArrayValues, currentN);
+                ms.mergeSort(&steps);
+                recorded = true;
                 break;
             }
             case 4: {
