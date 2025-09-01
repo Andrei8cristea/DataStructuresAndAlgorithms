@@ -1011,19 +1011,18 @@ private:
     }
 
     void updateDurationsAndAdjustRunning(float oldSpeed) {
-    // calculăm vechile durate
+
     float oldStepInterval = baseStepInterval / oldSpeed;
     float oldSwapDuration = baseSwapDuration / oldSpeed;
     float oldCompareDuration = baseCompareDuration / oldSpeed;
     float oldCompletionDuration = completionHighlightDuration / oldSpeed;
 
-    // actualizăm app-wide durations (noile valori)
+
     stepInterval = baseStepInterval / appSpeed;
     float newSwapDuration = baseSwapDuration / appSpeed;
     float newCompareDuration = baseCompareDuration / appSpeed;
     float newCompletionDuration = completionHighlightDuration / appSpeed;
 
-    // Ajustăm swapAnim (dacă rulează)
     if (swapAnim.active) {
         float elapsed = swapAnim.accElapsed + swapAnim.clock.getElapsedTime().asSeconds();
         float p = (oldSwapDuration > 0.0f) ? (elapsed / oldSwapDuration) : 0.0f;
@@ -1033,7 +1032,7 @@ private:
         swapAnim.clock.restart();
     }
 
-    // Ajustăm completionAnim (dacă rulează)
+
     if (completionAnim.active) {
         float elapsed = completionAnim.accElapsed + completionAnim.clock.getElapsedTime().asSeconds();
         float p = (oldCompletionDuration > 0.0f) ? (elapsed / oldCompletionDuration) : 0.0f;
@@ -1043,7 +1042,6 @@ private:
         completionAnim.clock.restart();
     }
 
-    // Ajustăm highlights (dacă există)
     for (int k = 0; k < highlightsCount; ++k) {
         float elapsed = highlights[k].accElapsed + highlights[k].clock.getElapsedTime().asSeconds();
         float p = (oldCompareDuration > 0.0f) ? (elapsed / oldCompareDuration) : 0.0f;
@@ -1053,7 +1051,6 @@ private:
         highlights[k].clock.restart();
     }
 
-    // Ajustăm stepClock accumulator (pentru pasii dintre step-uri)
     {
         float elapsed = stepAccElapsed + stepClock.getElapsedTime().asSeconds();
         float p = (oldStepInterval > 0.0f) ? (elapsed / oldStepInterval) : 0.0f;
@@ -1062,7 +1059,6 @@ private:
         stepClock.restart();
     }
 
-    // în final, setăm swapDuration/compareDuration member
     swapDuration = newSwapDuration;
     compareDuration = newCompareDuration;
     completionAnim.highlightDuration = newCompletionDuration;
