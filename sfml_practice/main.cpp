@@ -19,7 +19,7 @@ constexpr int WINDOW_HEIGHT = 600;
 constexpr float LATERAL_MARGIN = 50.0f;
 constexpr float SPACE_BETWEEN_BARS = 2.0f;
 constexpr int CONST_MAX_LENGTH = 100;
-constexpr int NUMBER_OF_COLUMNS = 100;
+constexpr int NUMBER_OF_COLUMNS = 30;
 constexpr float DURATION = 1.0f;
 
 // -----------------------------
@@ -125,24 +125,46 @@ public:
     CHeapSorter(const int input[], int n): CSorter(input, n) {}
 
 
-    void heapSort() override {
-        for (int i = size/2 - 1; i >= 0; --i) heapify(size, i);
-        for (int i = size - 1; i > 0; --i) {
-            std::swap(data[0], data[i]);
-            heapify(i, 0);
+    void heapSort(SStepBuffer* rec = nullptr) {
+        for (int i = size/2 - 1; i >= 0; --i) {
+            heapify(size, i, rec);
         }
+        for (int i = size - 1; i > 0; --i) {
+
+            if (rec) rec ->push_back(SStep{ACT_SWAP,0,i,0});
+            std::swap(data[0], data[i]);
+
+            if (rec) rec -> push_back(SStep{ACT_HIGHLIGHT,i,-1,0});
+            heapify(i, 0, rec);
+        }
+
+        if (rec && size > 0) rec->push_back(SStep{ACT_HIGHLIGHT,0,-1,0});
     }
 private:
-    void heapify(int n, int i) {
+    void heapify(int n, int i, SStepBuffer* rec) {
         int largest = i;
         int left = 2*i + 1;
         int right = 2*i + 2;
-        if (left < n && data[left] > data[largest]) largest = left;
-        if (right < n && data[right] > data[largest]) largest = right;
-        if (largest != i) {
-            std::swap(data[i], data[largest]);
-            heapify(n, largest);
+
+        if (left < n) {
+            if (rec) rec->push_back(SStep{ACT_COMPARE, largest, left, 0});
+            if (data[left] > data[largest]) largest = left;
         }
+
+        if (right < n) {
+            if (rec) rec->push_back(SStep{ACT_COMPARE, largest, right, 0});
+            if (data[right] > data[largest]) largest = right;
+        }
+
+        if (largest != i) {
+            if (rec) rec->push_back(SStep{ACT_SWAP, i, largest, 0});
+            std::swap(data[i], data[largest]);
+
+            heapify(n, largest, rec);
+        } else {
+            if (rec) rec->push_back(SStep{ACT_HIGHLIGHT, i, -1, 0});
+        }
+
     }
 };
 
@@ -552,9 +574,13 @@ public:
 
 private:
     void handleWelcomeEvent(const sf::Event& event) {
-        if (event.type == sf::Event::KeyPressed &&
-            event.key.code == sf::Keyboard::Enter) {
-            currentState = Menu;
+        if (event.type == sf::Event::KeyPressed) {
+            if (event.key.code == sf::Keyboard::Enter) {
+                currentState = Menu;
+            }
+            if (event.key.code == sf::Keyboard::B) {
+                window.close();
+            }
         }
         if (event.type == sf::Event::MouseButtonPressed &&
             event.mouseButton.button == sf::Mouse::Left) {
@@ -992,8 +1018,9 @@ private:
             }
             case 4: {
                 // Heap Sort
-                s.heapSort();
-                recorded = false;
+                CHeapSorter hs(currentArrayValues, currentN);
+                hs.heapSort(&steps);
+                recorded = true;
                 break;
             }
             default: {
